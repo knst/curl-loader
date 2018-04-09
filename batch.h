@@ -98,6 +98,10 @@ typedef struct batch_context
   */
   long clients_rampup_inc;
   
+  /* Flag: 0 means there is no any IP options, 1 means there is any options */
+  /* In case of 1 there is needed root permission */
+  int custom_ip_option;
+
    /* Name of the network interface to be used for loading, e.g. "eth0", "eth1:16" */
   char net_interface[16];
 

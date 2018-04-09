@@ -795,11 +795,13 @@ static int clients_num_start_parser (batch_context*const bctx, char*const value)
 }
 static int interface_parser (batch_context*const bctx, char*const value)
 {
+    bctx->custom_ip_option = 1;
     strncpy (bctx->net_interface, value, sizeof (bctx->net_interface) -1);
     return 0;
 }
 static int netmask_parser (batch_context*const bctx, char*const value)
 {
+  bctx->custom_ip_option = 1;
     /* CIDR number of non-masked first bits -16, 24, etc */
 
   if (! strchr (value, '.') && !strchr (value, ':'))
@@ -824,6 +826,8 @@ static int netmask_parser (batch_context*const bctx, char*const value)
 }
 static int ip_addr_min_parser (batch_context*const bctx, char*const value)
 {
+    bctx->custom_ip_option = 1;
+
     struct in_addr inv4;
     memset (&inv4, 0, sizeof (struct in_addr));
 
@@ -848,6 +852,8 @@ static int ip_addr_min_parser (batch_context*const bctx, char*const value)
 }
 static int ip_addr_max_parser (batch_context*const bctx, char*const value)
 {
+  bctx->custom_ip_option = 1;
+
   struct in_addr inv4;
   memset (&inv4, 0, sizeof (struct in_addr));
   
@@ -872,6 +878,7 @@ static int ip_addr_max_parser (batch_context*const bctx, char*const value)
 }
 static int ip_shared_num_parser (batch_context*const bctx, char*const value)
 {
+  bctx->custom_ip_option = 1;
   bctx->ip_shared_num = atol (value);
   if (bctx->ip_shared_num <= 0)
     {
@@ -2194,6 +2201,13 @@ static int validate_batch_general (batch_context*const bctx)
         return -1;
     }
 
+    if (bctx->custom_ip_option) {
+      if (geteuid()) {
+        fprintf (stderr,
+                 "%s - error: lacking root priviledges to run this program.\n", __func__);
+        return -1;
+      }
+
     // TODO: validate the existence of the network interface
     if (!strlen (bctx->net_interface))
     {
@@ -2249,7 +2263,7 @@ static int validate_batch_general (batch_context*const bctx)
             bctx->ip_shared_num =1;
           } 
       }
-
+    }
     if (bctx->cycles_num < 1)
     {
         fprintf (stderr, "%s - error: CYCLES_NUM is less than 1.\n"

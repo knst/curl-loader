@@ -144,13 +144,6 @@ main (int argc, char *argv [])
       return -1;
     }
 
-  if (geteuid())
-    {
-      fprintf (stderr, 
-               "%s - error: lacking root priviledges to run this program.\n", __func__);
-      return -1;
-    }
-  
    memset(bc_arr, 0, sizeof(bc_arr));
 
   /* 
@@ -491,8 +484,11 @@ int setup_curl_handle_init (client_context*const cctx, url_context* url)
     curl_easy_setopt (handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
       
   /* Bind the handle to a certain IP-address */
+  if (bctx->custom_ip_option)
+  {
   curl_easy_setopt (handle, CURLOPT_INTERFACE, 
                     bctx->ip_addr_array [cctx->client_index]);
+  }
 
   curl_easy_setopt (handle, CURLOPT_NOSIGNAL, 1);
 
@@ -888,7 +884,7 @@ int setup_curl_handle_appl (client_context*const cctx, url_context* url)
 
       /***********  FTP-SPECIFIC INITIALIZATION. *****************/
 
-      if (url->ftp_active)
+      if (bctx->custom_ip_option && url->ftp_active)
         {
           curl_easy_setopt(handle, 
                            CURLOPT_FTPPORT, 
@@ -1497,7 +1493,7 @@ static int init_client_contexts (batch_context* bctx,
       */
       cctx->cycle_num = 0;
 
-      if (verbose_logging > 1)
+      if (bctx->custom_ip_option && verbose_logging > 1)
          snprintf(cctx->client_name, sizeof(cctx->client_name) - 1, 
                "%d (%s) ", 
                i + 1, 
@@ -1717,6 +1713,7 @@ static void free_url (url_context* url, int clients_max)
 *               bctx_num    - number of batch contexts in <bctx_array>
 * Return Code/Output - None
 *******************************************************************************/
+
 static int create_ip_addrs (batch_context* bctx_array, int bctx_num)
 {
   int batch_index, client_index; /* Batch and client indexes */
@@ -1733,6 +1730,7 @@ static int create_ip_addrs (batch_context* bctx_array, int bctx_num)
   
   for (batch_index = 0 ; batch_index < bctx_num ; batch_index++) 
     {
+      if (bctx_array[batch_index].custom_ip_option == 0) continue;
       /* 
          Allocate the array of IP-addresses 
       */
@@ -2184,7 +2182,6 @@ static int create_thr_subbatches (batch_context *bc_arr, int subbatches_num)
                 }
             }
         }
-
       if (i)
       {
           bc_arr[i].cctx_array = 0;
