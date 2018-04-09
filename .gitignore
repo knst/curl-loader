@@ -1,0 +1,7 @@
+curl-loader
+build/
+inc/
+lib/
+obj/
+packages/*/
+packages/curl
