@@ -101,6 +101,9 @@ all: $(TARGET)
 $(TARGET): $(LIBCARES) $(LIBCURL) $(LIBEVENT)  $(CONF_OBJ) $(OBJ)
 	$(LD) $(PROF_FLAG) $(DEBUG_FLAGS) $(OPT_FLAGS) -o $@ $(OBJ) $(LDFLAGS) $(LIBS)
 
+$(OBJ): $(LIBCARES) $(LIBCURL) $(LIBEVENT)
+$(LIBCURL): $(LIBCARES)
+
 nobuildcurl: $(OBJ)
 	$(LD) $(PROF_FLAG) $(DEBUG_FLAGS) $(OPT_FLAGS) -o $(TARGET) $(OBJ) $(LIBS)
 
@@ -132,7 +135,7 @@ $(LIBEVENT):
 	cd $(LIBEVENT_BUILD); tar zxfv ../../packages/libevent-$(LIBEVENT_VER)-stable.tar.gz;
 	cd $(LIBEVENT_MAKE_DIR); patch -p1 < ../../../patches/libevent-nevent.patch; ./configure --prefix $(LIBEVENT_BUILD) \
 		CFLAGS="$(PROF_FLAG) $(DEBUG_FLAGS) $(OPT_FLAGS)"
-	make -C $(LIBEVENT_MAKE_DIR); make -C $(LIBEVENT_MAKE_DIR) install
+	make -j -C $(LIBEVENT_MAKE_DIR); make -C $(LIBEVENT_MAKE_DIR) install
 	mkdir -p ./inc; mkdir -p ./lib
 	cp -pf $(LIBEVENT_BUILD)/include/*.h ./inc
 	cp -pf $(LIBEVENT_BUILD)/lib/libevent.a ./lib
@@ -142,7 +145,7 @@ $(LIBCARES):
 	cd $(CARES_BUILD); tar zxf ../../packages/c-ares-$(CARES_VER).tar.gz;
 	cd $(CARES_MAKE_DIR); ./configure --prefix $(CARES_MAKE_DIR) \
 		CFLAGS="$(PROF_FLAG) $(DEBUG_FLAGS) $(OPT_FLAGS)"
-	make -C $(CARES_MAKE_DIR); make -C $(CARES_MAKE_DIR) install
+	make -j -C $(CARES_MAKE_DIR); make -C $(CARES_MAKE_DIR) install
 	mkdir -p ./inc; mkdir -p ./lib
 	cp -pf $(CARES_MAKE_DIR)/include/*.h ./inc
 	cp -pf $(CARES_MAKE_DIR)/lib/libcares.*a ./lib
@@ -165,7 +168,7 @@ $(LIBCURL):
         --enable-shared=no \
         --enable-ares=$(CARES_MAKE_DIR) \
         CFLAGS="$(PROF_FLAG) $(DEBUG_FLAGS) $(OPT_FLAGS) -DCURL_MAX_WRITE_SIZE=4096"
-	make -C $(CURL_BUILD); make -C $(CURL_BUILD)/lib install; make -C $(CURL_BUILD)/include/curl install;
+	make -j -C $(CURL_BUILD); make -C $(CURL_BUILD)/lib install; make -C $(CURL_BUILD)/include/curl install;
 	mkdir -p ./inc; mkdir -p ./lib
 	cp -a $(CURL_BUILD)/include/curl ./inc/curl
 	cp -pf $(CURL_BUILD)/lib/libcurl.*a ./lib
