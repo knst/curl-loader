@@ -135,6 +135,7 @@ static int form_records_file_parser (batch_context*const bctx, char*const value)
 static int upload_file_parser (batch_context*const bctx, char*const value);
 
 static int multipart_form_data_parser (batch_context*const bctx, char*const value);
+static int singlepart_form_data_parser (batch_context*const bctx, char*const value);
 
 static int web_auth_method_parser (batch_context*const bctx, char*const value);
 static int web_auth_credentials_parser (batch_context*const bctx, char*const value);
@@ -212,6 +213,7 @@ static const tag_parser_pair tp_map [] =
     {"UPLOAD_FILE", upload_file_parser},
 
     {"MULTIPART_FORM_DATA", multipart_form_data_parser},
+    {"SINGLEPART_FORM_DATA", singlepart_form_data_parser},
 
     {"WEB_AUTH_METHOD", web_auth_method_parser},
     {"WEB_AUTH_CREDENTIALS", web_auth_credentials_parser},
@@ -1700,6 +1702,72 @@ static int multipart_form_data_parser (batch_context*const bctx, char*const valu
 
   return 0;
 }
+
+static int singlepart_form_data_parser (batch_context*const bctx, char*const value)
+{
+  // FIXME: remove duplicated code with 'multipart_form_data_parser
+  char* fieldname = 0, *eq = 0, *content;
+  size_t value_len = strlen (value);
+  url_context* url = &bctx->url_ctx_array[bctx->url_index];
+
+  if (!value_len)
+    {
+      fprintf(stderr, "%s - error: zero length value passed.\n", __func__);
+      return -1;
+    }
+
+  /*
+     Examples:
+
+     "file=@cooltext.txt"
+  */
+
+  if (! (eq = strchr (value, '=')))
+    {
+      fprintf(stderr, "%s - error: no '=' sign in singlepart_form_data.\n", __func__);
+      return -1;
+    }
+
+  *eq = '\0';
+  fieldname = value;
+
+  /* TODO: Test also fieldname not to be empty space */
+  if (!strlen (fieldname))
+    {
+      fprintf(stderr, "%s - error: name prior to = is empty.\n", __func__);
+      return -1;
+    }
+
+  if (eq - value >= (int) value_len)
+    {
+      fprintf(stderr, "%s - error: no data after = sign.\n", __func__);
+      return -1;
+    }
+
+  content = eq + 1;
+
+  if (*content == '@')
+    {
+      if (content - value >= (int) value_len)
+        {
+          fprintf(stderr, "%s - error: no filename after  sign '@'.\n", __func__);
+          return -1;
+        }
+      content += 1;
+      fprintf(stderr, "%s - filename is '%s'\n", __func__, content);
+      size_t value_len = strlen(content) + 1;
+      url->body_file = calloc(value_len, sizeof(char));
+      strcpy(url->body_file, content);
+    }
+  else
+    {
+      fprintf(stderr, "%s - no filename with sign '@'.\n", __func__);
+      return -1;
+    }
+
+  return 0;
+}
+
 
 static int web_auth_method_parser (batch_context*const bctx, char*const value)
 {

@@ -698,6 +698,33 @@ int setup_curl_handle_init (client_context*const cctx, url_context* url)
       }
   }
 
+  if (url->body_file)
+  {
+      if (!(url->body_file_ptr = fopen(url->body_file, "rb")))
+      {
+        fprintf (stderr,
+                 "%s - fopen() failed to open for reading filename \"%s\", errno %d.\n",
+                 __func__, url->body_file, errno);
+        return -1;
+      }
+      // FIXME check returned value for fseek
+      fseek(url->body_file_ptr, 0, SEEK_END);
+      url->body_file_size = ftell(url->body_file_ptr);
+      fseek(url->body_file_ptr, 0, SEEK_SET);  //same as rewind(f);
+
+      url->body_bytes = malloc(url->body_file_size + 1);
+      char* ptr = url->body_bytes;
+      off_t remaining = url->body_file_size;
+      while (remaining) {
+          off_t readed = fread(ptr, sizeof(char), remaining, url->body_file_ptr);
+          remaining -= readed;
+          ptr += readed;
+      }
+      fclose(url->body_file_ptr);
+
+      *ptr = 0;
+  }
+
   /* 
      Application (url) specific setups, like HTTP-specific, FTP-specific, etc. 
   */
@@ -773,7 +800,13 @@ int setup_curl_handle_appl (client_context*const cctx, url_context* url)
           /* 
              Make POST, using post buffer, if requested. 
           */
-            if (url->upload_file && url->upload_file_ptr && (!cctx->post_data || !cctx->post_data[0]))
+            if (url->body_file)
+            {
+                curl_easy_setopt(handle, CURLOPT_POST, 1);
+                curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, url->body_file_size);
+                curl_easy_setopt(handle, CURLOPT_POSTFIELDS, url->body_bytes);
+            }
+            else if (url->upload_file && url->upload_file_ptr && (!cctx->post_data || !cctx->post_data[0]))
             {
                 curl_easy_setopt(handle, CURLOPT_POST, 1);
             }
@@ -992,6 +1025,11 @@ int response_logfiles_set (client_context* cctx, url_context* url)
 ***********************************************************************/
 int init_client_url_post_data (client_context* cctx, url_context* url)
 {
+  if (url->body_file)
+    {
+      // see setup_curl_handle_appl, body_file part
+      return 0;
+    }
   if (url->form_str)
     {
       if (init_client_formed_buffer (cctx, 
@@ -1664,6 +1702,27 @@ static void free_url (url_context* url, int clients_max)
       url->form_records_array = 0;
     }
   
+  /* Free body file */
+  if (url->body_bytes)
+    {
+      free (url->body_bytes);
+      url->body_bytes= 0;
+    }
+
+  /* Free body file */
+  if (url->body_file)
+    {
+      free (url->body_file);
+      url->body_file= 0;
+    }
+
+  /* Close file pointer of body file */
+  if (url->body_file_ptr)
+    {
+      fclose (url->body_file_ptr);
+      url->body_file_ptr = 0;
+    }
+
   /* Free upload file */
   if (url->upload_file)
     {
@@ -1786,7 +1845,6 @@ static int create_ip_addrs (batch_context* bctx_array, int bctx_num)
 
   return 0;
 }
-
 /*****************************************************************************
 * Function name - ip_addr_str_allocate_init
 *
@@ -2015,7 +2073,10 @@ static int create_thr_subbatches (batch_context *bc_arr, int subbatches_num)
   int i;
   for (i = 0 ; i < subbatches_num ; i++) 
   {
-      sprintf (bc_arr[i].batch_name, "%s_%d", master.batch_name, i);
+      if (snprintf (bc_arr[i].batch_name, BATCH_NAME_SIZE, "%s_%d", master.batch_name, i) < 0)
+      {
+          fprintf (stderr, "%s - error: too long name of batch %d", __func__, i);
+      }
       sprintf (bc_arr[i].batch_logfile, "%s.log", bc_arr[i].batch_name);
       sprintf (bc_arr[i].batch_statistics, "%s.txt", bc_arr[i].batch_name);
       

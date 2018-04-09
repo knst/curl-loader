@@ -256,6 +256,13 @@ typedef struct url_context
   /* File pointer to the open upload file */
   FILE* upload_file_ptr;
 
+  /*
+     Name of the file (with a path, if required) with body.
+  */
+  char* body_file;
+  off_t body_file_size;
+  FILE* body_file_ptr;
+  char* body_bytes;
 
   /* Structures for multipart/formdata HTTP POST (rfc1867-style posts) */
   struct curl_httppost* mpart_form_post;
